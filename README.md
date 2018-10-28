@@ -1,2 +1,2 @@
 # Trabalho-de-diplomacao
-ALGORITMOS DE APRENDIZAGEM POR REFORÇO NA SOLUÇÃO DO PROBLEMA DE ROTEAMENTO DE VEÍCULOS CAPACITADOS UTILIZANDO TRAÇO DE ELEGIBILIDADE
+Análise do desempenho de algoritmos de aprendizagem por reforço na solução do problema de roteamento de veículos capacitados utilizando traço de elegibilidade
