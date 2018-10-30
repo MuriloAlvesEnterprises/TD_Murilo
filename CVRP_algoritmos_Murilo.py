@@ -185,6 +185,29 @@ def AtualizaRota(rotaAtual, estado, acao, ambiente):
     rotaAtual["Consumidores"].append(acao)
 
     return rotaAtual, distancia
+
+def Atualiza_Q_Elebibilidade(rotas, veiculo, Q, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura):
+    """
+    Cálcula o valor de Q e a traço de elegibilidade para todos os estados já visitados
+    
+    Entrada:
+        rotaAtual: Rota atual para ser atualizada
+        Q, QVisitas, QElegibilidade: Matriz dos valores Q, quant. de visitas e traço de elegibilidade 
+        estado: Posição do estado atual
+        acao: Posição da ação atual
+        recompensa: Recompensa de escolher a próxima a ação no estado atual
+        
+    Retorno:
+        Matriz Q e de elegibilidades atualizadas 
+    """
+    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
+        u = rotas[veiculo]["Consumidores"][j-1]
+        v = rotas[veiculo]["Consumidores"][j]
+        # Atualiza Q com elegibilidade
+        Q[u][v] = Q[u][v] + TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q[estado][acao])*QElegibilidade[u][v]
+        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+    
+    return Q, QElegibilidade
     
 # Algoritmo Q-Learning com traço de elegibilidade (veículos dinâmicos)
 def Q_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsilon = 0.9, epocas = 1000):
@@ -235,21 +258,20 @@ def Q_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsilon = 
             # Atualiza a quantidade de visitas ao par (s,a)
             QVisitas[estado][acao] = QVisitas[estado][acao] + 1
             
+            # Recompensa por escolher a ação no estado atual
+            recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
+            
             # Valor da possível próxima ação
             if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
                 valorAcaoFutura = 0
             else:
                 valorAcaoFutura = Q[acao][MaxQ(acoes)]
             
+            # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
             if (lambd == 0):
-                Q[estado][acao] = Q[estado][acao] + TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q[estado][acao])
+                Q[estado][acao] = Q[estado][acao] + TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q[estado][acao])
             else:
-                for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                    u = rotas[veiculo]["Consumidores"][j-1]
-                    v = rotas[veiculo]["Consumidores"][j]
-                    # Atualiza Q com elegibilidade
-                    Q[u][v] = Q[u][v] + TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q[estado][acao])*QElegibilidade[u][v]
-                    QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                Q, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
             
             # Continua ou cria uma nova rota
             if (acao != 0):
@@ -332,6 +354,9 @@ def DoubleQ_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsi
             # Atualiza a quantidade de visitas ao par (s,a)
             QVisitas[estado][acao] = QVisitas[estado][acao] + 1
             
+            # Recompensa por escolher a ação no estado atual
+            recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
+            
             if (choice(["1","2"]) == "1"):
                 # Valor da possível próxima ação
                 if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
@@ -339,15 +364,11 @@ def DoubleQ_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsi
                 else:
                     valorAcaoFutura = Q2[acao][MaxQ(acoes)]
                 
+                # Atualiza Q1, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
-                    Q1[estado][acao] = Q1[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q1[estado][acao])
+                    Q1[estado][acao] = Q1[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q1[estado][acao])
                 else:
-                    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                        u = rotas[veiculo]["Consumidores"][j-1]
-                        v = rotas[veiculo]["Consumidores"][j]
-                        # Atualiza Q com elegibilidade
-                        Q1[u][v] = Q1[u][v]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q1[estado][acao])*QElegibilidade[u][v]
-                        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                    Q1, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q1, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
             else:
                 # Valor da possível próxima ação
                 if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
@@ -355,15 +376,11 @@ def DoubleQ_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsi
                 else:
                     valorAcaoFutura = Q1[acao][MaxQ(acoes)]
                 
+                # Atualiza Q2, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
-                    Q2[estado][acao] = Q2[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q2[estado][acao])
+                    Q2[estado][acao] = Q2[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q2[estado][acao])
                 else:
-                    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                        u = rotas[veiculo]["Consumidores"][j-1]
-                        v = rotas[veiculo]["Consumidores"][j]
-                        # Atualiza Q com elegibilidade
-                        Q2[u][v] = Q2[u][v]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q2[estado][acao])*QElegibilidade[u][v]
-                        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                    Q2, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q2, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
 
             # Continua ou cria uma nova rota
             if (acao != 0):
@@ -446,20 +463,20 @@ def Q_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto = 0.1, epsilon = 0.9,
             # Atualiza a quantidade de visitas ao par (s,a)
             QVisitas[estado][acao] = QVisitas[estado][acao] + 1
             
+            # Recompensa por escolher a ação no estado atual
+            recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
+            
             # Valor da possível próxima ação
             if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
                 valorAcaoFutura = Q[acao][0]
             else:
                 valorAcaoFutura = Q[acao][MaxQ(acoes)]
+            
+            # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
             if (lambd == 0):
-                Q[estado][acao] = Q[estado][acao] + TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q[estado][acao])
+                Q[estado][acao] = Q[estado][acao] + TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q[estado][acao])
             else:
-                for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                    u = rotas[veiculo]["Consumidores"][j-1]
-                    v = rotas[veiculo]["Consumidores"][j]
-                    # Atualiza Q com elegibilidade
-                    Q[u][v] = Q[u][v] + TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q[estado][acao])*QElegibilidade[u][v]
-                    QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                Q, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
         
         distanciaTotal = 0
         
@@ -477,15 +494,14 @@ def Q_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto = 0.1, epsilon = 0.9,
             # Atualiza a quantidade de visitas ao par (s,a)
             QVisitas[estado][acao] = QVisitas[estado][acao] + 1
             
+            # Recompensa por escolher a ação no estado atual
+            recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
+            
+            # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
             if (lambd == 0):
-                Q[estado][acao] = Q[estado][acao] + TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + 0 - Q[estado][acao])
+                Q[estado][acao] = Q[estado][acao] + TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + 0 - Q[estado][acao])
             else:
-                for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                    u = rotas[veiculo]["Consumidores"][j-1]
-                    v = rotas[veiculo]["Consumidores"][j]
-                    # Atualiza Q com elegibilidade
-                    Q[u][v] = Q[u][v] + TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + 0 - Q[estado][acao])*QElegibilidade[u][v]
-                    QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                Q, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, 0)
             
             if (rotas[veiculo]["Demanda"] > ambiente["Capacidade"]):
                 distanciaTotal = float('inf') # inválido
@@ -554,37 +570,33 @@ def DoubleQ_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto, epsilon = 0.9,
             # Atualiza a quantidade de visitas ao par (s,a)
             QVisitas[estado][acao] = QVisitas[estado][acao] + 1
             
+            # Recompensa por escolher a ação no estado atual
+            recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
+            
             if (choice(["1","2"]) == "1"):
                 # Valor da possível próxima ação
                 if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
                     valorAcaoFutura = Q2[acao][0]
                 else:
                     valorAcaoFutura = Q2[acao][MaxQ(acoes)]
-                    
+                
+                # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
-                    Q1[estado][acao] = Q1[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q1[estado][acao])
+                    Q1[estado][acao] = Q1[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q1[estado][acao])
                 else:
-                    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                        u = rotas[veiculo]["Consumidores"][j-1]
-                        v = rotas[veiculo]["Consumidores"][j]
-                        # Atualiza Q com elegibilidade
-                        Q1[u][v] = Q1[u][v]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q1[estado][acao])*QElegibilidade[u][v]
-                        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                    Q1, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q1, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
             else:
                 # Valor da possível próxima ação
                 if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
                     valorAcaoFutura = Q1[acao][0]
                 else:
                     valorAcaoFutura = Q1[acao][MaxQ(acoes)]
+                
+                # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
-                    Q2[estado][acao] = Q2[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q2[estado][acao])
+                    Q2[estado][acao] = Q2[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + taxaDesconto*valorAcaoFutura - Q2[estado][acao])
                 else:  
-                    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                        u = rotas[veiculo]["Consumidores"][j-1]
-                        v = rotas[veiculo]["Consumidores"][j]
-                        # Atualiza Q com elegibilidade
-                        Q2[u][v] = Q2[u][v]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + taxaDesconto*valorAcaoFutura - Q2[estado][acao])*QElegibilidade[u][v]
-                        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                    Q2, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q2, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
                 
         distanciaTotal = 0
         
@@ -602,26 +614,20 @@ def DoubleQ_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto, epsilon = 0.9,
             # Atualiza a quantidade de visitas ao par (s,a)
             QVisitas[estado][acao] = QVisitas[estado][acao] + 1
             
+            # Recompensa por escolher a ação no estado atual
+            recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
+            
+            # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
             if (choice(["1","2"]) == "1"):
                 if (lambd == 0):
-                    Q1[estado][acao] = Q1[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + 0 - Q1[estado][acao])
+                    Q1[estado][acao] = Q1[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + 0 - Q1[estado][acao])
                 else:
-                    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                        u = rotas[veiculo]["Consumidores"][j-1]
-                        v = rotas[veiculo]["Consumidores"][j]
-                        # Atualiza Q com elegibilidade
-                        Q1[u][v] = Q1[u][v]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + 0 - Q1[estado][acao])*QElegibilidade[u][v]
-                        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                    Q1, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q1, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, 0)
             else:
                 if (lambd == 0):
-                    Q2[estado][acao] = Q2[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + 0 - Q2[estado][acao])
+                    Q2[estado][acao] = Q2[estado][acao]+ TaxaAprendizagem(QVisitas[estado][acao])*(recompensa + 0 - Q2[estado][acao])
                 else:
-                    for j in range(len(rotas[veiculo]["Consumidores"]) - 1, 0, -1):
-                        u = rotas[veiculo]["Consumidores"][j-1]
-                        v = rotas[veiculo]["Consumidores"][j]
-                        # Atualiza Q com elegibilidade
-                        Q2[u][v] = Q2[u][v]+ TaxaAprendizagem(QVisitas[estado][acao])*(Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"]) + 0 - Q2[estado][acao])*QElegibilidade[u][v]
-                        QElegibilidade[u][v] = lambd*taxaDesconto*QElegibilidade[u][v]
+                    Q2, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q2, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, 0)
             
             if (rotas[veiculo]["Demanda"] > ambiente["Capacidade"]):
                 distanciaTotal = float('inf') # inválido
