@@ -94,6 +94,23 @@ def MaxQ (acoes):
     """
     return acoes.index(max(acoes)) 
 
+def MaxQDouble (acoes, valores):
+    """
+    Escolhe uma ação pelo maior valor.
+    
+    Entrada:
+        acoes: Valores das ações, sendo '-inf' para ações inválidas
+        valores: Valores das ações para Q1 ou Q2
+        
+    Retorno:
+        Posição (index) da ação na lista de ações 
+    """
+    for i in range(len(valores)):
+        if acoes[i] != float('-inf'):
+            acoes[i] = valores[i]
+    
+    return acoes.index(max(acoes)) 
+
 def TaxaAprendizagem (visitas):
     """
     Taxa de aprendizagem baseada em visitas feitas ao par Q(estado, ação)
@@ -262,7 +279,7 @@ def Q_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsilon = 
             recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
             
             # Valor da possível próxima ação
-            if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
+            if (acoes.count(float('-inf')) == len(acoes)): #Se a próxima ação é o depósito
                 valorAcaoFutura = 0
             else:
                 valorAcaoFutura = Q[acao][MaxQ(acoes)]
@@ -359,10 +376,10 @@ def DoubleQ_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsi
             
             if (choice(["1","2"]) == "1"):
                 # Valor da possível próxima ação
-                if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
+                if (acoes.count(float('-inf')) == len(acoes)): # Se a próxima ação é o depósito
                     valorAcaoFutura = 0
                 else:
-                    valorAcaoFutura = Q2[acao][MaxQ(acoes)]
+                    valorAcaoFutura = Q2[acao][MaxQDouble(acoes, Q1[acao])]
                 
                 # Atualiza Q1, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
@@ -371,10 +388,10 @@ def DoubleQ_Learning_VeiculosDinamicos(ambiente, lambd, taxaDesconto = 0.1, epsi
                     Q1, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q1, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
             else:
                 # Valor da possível próxima ação
-                if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
+                if (acoes.count(float('-inf')) == len(acoes)): # Se a próxima ação é o depósito
                     valorAcaoFutura = 0
                 else:
-                    valorAcaoFutura = Q1[acao][MaxQ(acoes)]
+                    valorAcaoFutura = Q1[acao][MaxQDouble(acoes, Q2[acao])]
                 
                 # Atualiza Q2, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
@@ -467,7 +484,7 @@ def Q_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto = 0.1, epsilon = 0.9,
             recompensa = Recompensa(distancia, ambiente["Estados"][acao]["Demanda"], ambiente["Capacidade"])
             
             # Valor da possível próxima ação
-            if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
+            if (acoes.count(float('-inf')) == len(acoes)): # Se a próxima ação é o depósito
                 valorAcaoFutura = Q[acao][0]
             else:
                 valorAcaoFutura = Q[acao][MaxQ(acoes)]
@@ -575,10 +592,10 @@ def DoubleQ_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto, epsilon = 0.9,
             
             if (choice(["1","2"]) == "1"):
                 # Valor da possível próxima ação
-                if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
+                if (acoes.count(float('-inf')) == len(acoes)): # Se a próxima ação é o depósito
                     valorAcaoFutura = Q2[acao][0]
                 else:
-                    valorAcaoFutura = Q2[acao][MaxQ(acoes)]
+                    valorAcaoFutura = Q2[acao][MaxQDouble(acoes, Q1[acao])]
                 
                 # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
@@ -587,10 +604,10 @@ def DoubleQ_Learning_VeiculosFixos(ambiente, lambd, taxaDesconto, epsilon = 0.9,
                     Q1, QElegibilidade = Atualiza_Q_Elebibilidade(rotas, veiculo, Q1, QVisitas, estado, acao, recompensa, QElegibilidade, lambd, taxaDesconto, valorAcaoFutura)
             else:
                 # Valor da possível próxima ação
-                if (acoes.count(float('-inf')) == len(acoes)): # Se ação é o depósito
+                if (acoes.count(float('-inf')) == len(acoes)): # Se a próxima ação é o depósito
                     valorAcaoFutura = Q1[acao][0]
                 else:
-                    valorAcaoFutura = Q1[acao][MaxQ(acoes)]
+                    valorAcaoFutura = Q1[acao][MaxQDouble(acoes, Q2[acao])]
                 
                 # Atualiza Q, sem elegibilidade (lambda == 0) ou com (lambda != 0)
                 if (lambd == 0):
@@ -795,7 +812,7 @@ Começo do código
 cpvlib = Biblioteca()
 
 # Escolher algoritmo
-opcao = 0 # Algoritmo Q-Learning com traço de elegibilidade (veículos fixos)
+opcao = 1 # Algoritmo Q-Learning com traço de elegibilidade (veículos fixos)
 '''
 opcao = 1 #Algoritmo Double Q-Learning com traço de elegibilidade (veículos fixos)
 opcao = 2 #Algoritmo Q-Learning com traço de elegibilidade (veículos dinâmicos) 
